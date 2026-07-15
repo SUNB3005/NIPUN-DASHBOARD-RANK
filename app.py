@@ -62,12 +62,13 @@ show_data = st.sidebar.button("Show Data", type="primary")
 if show_data or 'clicked' in st.session_state:
     st.session_state['clicked'] = True
     
-    # --- गणना (Calculations) ---
-    total_schools = filtered_df['school'].nunique()
+    # 🎯 FIX: मोजणी आता 'school' नावाऐवजी 'udise' वरून केली आहे, जेणेकरून एकही शाळा मिस होणार नाही!
+    total_schools = filtered_df['udise'].nunique()
     
+    # Assessed आणि Not Assessed शाळांची अचूक वर्गवारी
     filtered_df['is_assessed'] = filtered_df[['all reading assesed', 'all writing assesed', 'all numercy assesed', 'all 0peration assesed']].max(axis=1) > 0
-    assessed_schools_count = filtered_df[filtered_df['is_assessed'] == True]['school'].nunique()
-    not_assessed_schools_count = filtered_df[filtered_df['is_assessed'] == False]['school'].nunique()
+    assessed_schools_count = filtered_df[filtered_df['is_assessed'] == True]['udise'].nunique()
+    not_assessed_schools_count = filtered_df[filtered_df['is_assessed'] == False]['udise'].nunique()
     
     # टक्केवारी काढणे
     tot_ra = filtered_df['all reading assesed'].sum()
@@ -86,7 +87,8 @@ if show_data or 'clicked' in st.session_state:
     tot_op_ni = filtered_df['all operation nipun'].sum()
     operation_per = (tot_op_ni / tot_opa * 100) if tot_opa > 0 else 0
 
-    zp_count = filtered_df[filtered_df['manag'].str.contains('Zilla Parishad', case=False, na=False)]['school'].nunique()
+    # व्यवस्थापनानुसार शाळांची संख्या (UDISE नुसार)
+    zp_count = filtered_df[filtered_df['manag'].str.contains('Zilla Parishad', case=False, na=False)]['udise'].nunique()
     other_mgmt_count = total_schools - zp_count
 
     # Display Streamlit Metric Cards
@@ -164,7 +166,7 @@ if show_data or 'clicked' in st.session_state:
         </table>
     """
     
-    # ७ वर्गांचे मुख्य कोष्टक
+    # वर्गांची माहिती
     classes_info = [
         ('इयत्ता दुसरी (Class 2)', 'class 2 Total Student', 'Class 2 reading assesed', 'Class 2 reading nipun', 'Class 2 writing assesed', 'Class 2 writing nipun', 'Class 2 numercy assesed', 'Class 2 numercy nipun', 'Class 2 0peration assesed', 'Class 2 operation nipun', 'Class 2 all nipun', 'मार्च २०२६ (इ. २ री)', 'जुलै २०२६ (इ. ३ री)'),
         ('इयत्ता तिसरी (Class 3)', 'class 3 Total Student', 'Class 3 reading assesed', 'Class 3 reading nipun', 'Class 3 writing assesed', 'Class 3 writing nipun', 'Class 3 numercy assesed', 'Class 3 numercy nipun', 'Class 3 0peration assesed', 'Class 3 operation nipun', 'Class 3 all nipun', 'मार्च २०२६ (इ. ३ री)', 'जुलै २०२६ (इ. ४ थी)'),
@@ -259,6 +261,7 @@ if show_data or 'clicked' in st.session_state:
         </table>
         """
 
+    # अंतिम Summary Table
     tot_all_to = filtered_df['all Total Student'].sum()
     tot_all_ra = filtered_df['all reading assesed'].sum()
     tot_all_r_ni = filtered_df['all reading nipun'].sum()
@@ -314,17 +317,13 @@ if show_data or 'clicked' in st.session_state:
     </table>
     """
 
-    # --- 🔥 नियम: लॉजिकनुसार पहिला अहवाल बदलणे (Clusterwise OR Schoolwise) ---
+    # --- Clusterwise OR Schoolwise Report ---
     if selected_cluster == "सर्व (All)":
-        # 🟢 टप्पा १: जर क्लस्टर 'All' असेल तर डेटा Group By करून Clusterwise दाखवणे
         report_title = "📊 Cluster Wise Report (According All NIPUN Percentage)"
-        
-        # क्लस्टरनुसार डेटा गोळा करणे
         grouped_cluster = filtered_df.groupby(['block', 'cluster']).agg({
             'all all nipun': 'sum',
             'all Total Student': 'sum'
         }).reset_index()
-        
         grouped_cluster['all all nipun percentage'] = (grouped_cluster['all all nipun'] / grouped_cluster['all Total Student'] * 100).fillna(0)
         grouped_cluster = grouped_cluster.sort_values(by='all all nipun percentage', ascending=False).reset_index(drop=True)
         
@@ -354,7 +353,6 @@ if show_data or 'clicked' in st.session_state:
                 </tr>
             """
     else:
-        # 🔵 टप्पा २: जर एखादा विशिष्ट क्लस्टर निवडला असेल तरच शाळांची स्वतंत्र यादी देणे (Schoolwise)
         report_title = f"🏫 School Wise Report for Cluster: {selected_cluster} (According All NIPUN Percentage)"
         school_wise_df = filtered_df.copy()
         school_wise_df = school_wise_df.sort_values(by='all all nipun percentage', ascending=False).reset_index(drop=True)
@@ -390,7 +388,7 @@ if show_data or 'clicked' in st.session_state:
             """
     html_content += "</tbody></table>"
 
-    # --- 🔥 सेक्शन २: Not Assessed School List ---
+    # --- नॉट असेस्ड शाळांची यादी ---
     not_assessed_df = filtered_df[~filtered_df['is_assessed'] & (filtered_df['all Total Student'] > 0)].reset_index(drop=True)
     
     html_content += """
@@ -436,10 +434,8 @@ if show_data or 'clicked' in st.session_state:
     html_content += "</tbody></table>"
     html_content += "</div>"
     
-    # Render Report
     components.html(html_content, height=2200, scrolling=True)
     
-    # Download HTML Button
     st.sidebar.download_button(
         label="📥 Export to HTML / Print Report",
         data=html_content,
